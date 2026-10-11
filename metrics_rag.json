@@ -1,0 +1,233 @@
+{
+  "topic": "graph neural network",
+  "corpus_papers": 23,
+  "index_chunks": 109,
+  "embedder": "hashing",
+  "llm": "deepseek",
+  "questions": 6,
+  "top_k": 5,
+  "target_retrieval_rate": 1.0,
+  "citation_support_rate_mean": 1.0,
+  "judged_pairs": 12,
+  "invalid_marker_count": 0,
+  "latency_p50_s": 1.62,
+  "latency_p95_s": 1.985,
+  "tokens_total": 3922,
+  "tokens_mean": 653.7,
+  "per_question": [
+    {
+      "question": "总结论文「A Tutorial about Random Neural Networks in Supervised Learning」的主要贡献与方法。",
+      "target_uid": "arxiv:1609.04846v1",
+      "target_retrieved": true,
+      "answer_chars": 332,
+      "citations_used": [
+        5,
+        1,
+        3,
+        4
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "该论文的主要贡献是提供了一份关于随机神经网络（Random Neural Networks, RNNs）在监督学习中应用的实用指南，重点聚焦于其学习能力[5]。",
+            "n": 5,
+            "paper_uid": "arxiv:1609.04846v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "论文将RNNs描述为一类神经网络，同时也可视为一种特定的排队网络[1]。",
+            "n": 1,
+            "paper_uid": "arxiv:1609.04846v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 1.832,
+      "tokens": 651
+    },
+    {
+      "question": "总结论文「Learning Universal Graph Neural Network Embeddings With Aid Of Transfer Learning」的主要贡献与方法。",
+      "target_uid": "arxiv:1909.10086v3",
+      "target_retrieved": true,
+      "answer_chars": 180,
+      "citations_used": [
+        4,
+        2
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "该论文提出了首个功能强大且具有理论保证的图神经网络，用于学习任务无关的图嵌入，称为深度通用图嵌入（DUGNN）[4]。",
+            "n": 4,
+            "paper_uid": "arxiv:1909.10086v3",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "DUGNN 模型结合了一个新颖的图神经网络（作为通用图编码器），并利用丰富的图核（作为多任务图解码器），同时支持无监督学习和任务特定的自适应监督学习[2][4]。",
+            "n": 2,
+            "paper_uid": "arxiv:1909.10086v3",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 1.359,
+      "tokens": 586
+    },
+    {
+      "question": "总结论文「Predicting concentration levels of air pollutants by transfer learning and recurrent neural network」的主要贡献与方法。",
+      "target_uid": "arxiv:2502.01654v1",
+      "target_retrieved": true,
+      "answer_chars": 281,
+      "citations_used": [
+        2,
+        3,
+        1
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "该论文的主要方法是在澳门使用长短期记忆（LSTM）循环神经网络（RNN）预测空气污染物的未来浓度，并利用了气象数据和空气污染物浓度数据[2]。",
+            "n": 2,
+            "paper_uid": "arxiv:2502.01654v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "研究从五个站点（其中四个为空气质量监测站，一个为自动气象站）准备记录，并采用计算智能技术构建和提取基于预测的知识系统[3]。",
+            "n": 3,
+            "paper_uid": "arxiv:2502.01654v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 1.634,
+      "tokens": 698
+    },
+    {
+      "question": "总结论文「Masked Conditional Neural Networks for Audio Classification」的主要贡献与方法。",
+      "target_uid": "arxiv:1803.02421v2",
+      "target_retrieved": true,
+      "answer_chars": 193,
+      "citations_used": [
+        1,
+        5
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "该论文提出了两种用于时序信号识别的神经网络：ConditionaL Neural Network（CLNN）与 Masked ConditionaL Neural Network（MCLNN）[1][5]。",
+            "n": 1,
+            "paper_uid": "arxiv:1803.02421v2",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "该论文提出了两种用于时序信号识别的神经网络：ConditionaL Neural Network（CLNN）与 Masked ConditionaL Neural Network（MCLNN）[1][5]。",
+            "n": 5,
+            "paper_uid": "arxiv:1803.02421v2",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 1.018,
+      "tokens": 624
+    },
+    {
+      "question": "总结论文「The Deep Arbitrary Polynomial Chaos Neural Network or how Deep Artificial Neural Networks could benefit from Data-Driven Homogeneous Chaos Theory」的主要贡献与方法。",
+      "target_uid": "arxiv:2306.14753v1",
+      "target_retrieved": true,
+      "answer_chars": 300,
+      "citations_used": [
+        2,
+        4
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "该论文的主要贡献是提出将数据驱动的多项式混沌展开（PCE）理论推广形式——任意多项式混沌（aPC）——用于深度人工神经网络（DANN），从而构建深度任意多项式混沌神经网络[2]。",
+            "n": 2,
+            "paper_uid": "arxiv:2306.14753v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "其方法是从齐次混沌理论（即多项式混沌展开）的视角分析 DANN 中的神经信号处理[4]；具体而言，从 PCE 角度看，DANN 每个节点上的（线性）响应可视为前一层单个神经元的 1 阶多变量多项式，即单项式的线性加权和[4]。",
+            "n": 4,
+            "paper_uid": "arxiv:2306.14753v1",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 1.606,
+      "tokens": 636
+    },
+    {
+      "question": "总结论文「Graph Neural Network Training Systems: A Performance Comparison of Full-Graph and Mini-Batch」的主要贡献与方法。",
+      "target_uid": "arxiv:2406.00552v4",
+      "target_retrieved": true,
+      "answer_chars": 387,
+      "citations_used": [
+        1,
+        2,
+        5
+      ],
+      "citations_invalid": [],
+      "audit": {
+        "pairs": 2,
+        "supported": 2,
+        "unclear": 0,
+        "citation_support_rate": 1.0,
+        "detail": [
+          {
+            "claim": "根据所提供的来源，该论文的主要贡献与方法可总结如下：\n\n该论文针对图神经网络（GNN）训练中两种常见方法——小批量训练与全图训练——进行了全面的实证比较[1][2]。",
+            "n": 1,
+            "paper_uid": "arxiv:2406.00552v4",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          },
+          {
+            "claim": "根据所提供的来源，该论文的主要贡献与方法可总结如下：\n\n该论文针对图神经网络（GNN）训练中两种常见方法——小批量训练与全图训练——进行了全面的实证比较[1][2]。",
+            "n": 2,
+            "paper_uid": "arxiv:2406.00552v4",
+            "verdict": "SUPPORTED",
+            "raw": "SUPPORTED"
+          }
+        ]
+      },
+      "latency_s": 2.036,
+      "tokens": 727
+    }
+  ]
+}

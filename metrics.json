@@ -1,0 +1,131 @@
+{
+  "eval_set": "eval/eval_set.json",
+  "label_scheme": "title-recovery: query is the paper title, expected is that paper uid",
+  "sources": [
+    "arxiv",
+    "crossref",
+    "pubmed"
+  ],
+  "items": 12,
+  "scored": 12,
+  "failures": 0,
+  "recall": {
+    "at_1": 0.9167,
+    "at_5": 1.0,
+    "at_10": 1.0
+  },
+  "mrr": 0.9583,
+  "latency_p50_s": 7.058,
+  "latency_p95_s": 10.301,
+  "per_item": [
+    {
+      "query": "How do language models learn facts? Dynamics, curricula and hallucinations",
+      "expected": [
+        "arxiv:2503.21676v2"
+      ],
+      "rank": 1,
+      "pooled": 21,
+      "ranked": 21
+    },
+    {
+      "query": "MameLoshnLM: Yiddish Language Model and Evaluation Benchmark",
+      "expected": [
+        "arxiv:2608.05850v2"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 20
+    },
+    {
+      "query": "Discriminating Similar Languages: Evaluations and Explorations",
+      "expected": [
+        "arxiv:1610.00031v1"
+      ],
+      "rank": 2,
+      "pooled": 30,
+      "ranked": 29
+    },
+    {
+      "query": "Modeling Language Change in Historical Corpora: The Case of Portuguese",
+      "expected": [
+        "arxiv:1610.00030v1"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 19
+    },
+    {
+      "query": "Unforgettable Generalization in Language Models",
+      "expected": [
+        "arxiv:2409.02228v2"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 20
+    },
+    {
+      "query": "Are Compressed Language Models Less Subgroup Robust?",
+      "expected": [
+        "arxiv:2403.17811v1"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 19
+    },
+    {
+      "query": "Clinical information extraction for Low-resource languages with Few-shot learning using Pre-trained language models and Prompting",
+      "expected": [
+        "arxiv:2403.13369v2"
+      ],
+      "rank": 1,
+      "pooled": 21,
+      "ranked": 19
+    },
+    {
+      "query": "Annotating Cognates and Etymological Origin in Turkic Languages",
+      "expected": [
+        "arxiv:1501.03191v1"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 20
+    },
+    {
+      "query": "Introducing MELI: the Mandarin-English Language Interview Corpus",
+      "expected": [
+        "arxiv:2603.27043v2"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 19
+    },
+    {
+      "query": "How Important Is Tokenization in French Medical Masked Language Models?",
+      "expected": [
+        "arxiv:2402.15010v2"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 16
+    },
+    {
+      "query": "Large Language Models and Multimodal Retrieval for Visual Word Sense Disambiguation",
+      "expected": [
+        "arxiv:2310.14025v1"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 18
+    },
+    {
+      "query": "Fast Vocabulary Transfer for Language Model Compression",
+      "expected": [
+        "arxiv:2402.09977v1"
+      ],
+      "rank": 1,
+      "pooled": 20,
+      "ranked": 18
+    }
+  ],
+  "errors": []
+}

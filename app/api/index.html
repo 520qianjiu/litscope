@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang='zh'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>LitScope</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0f17; color: #e6edf3;
+         font-family: -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif; }
+  header { padding: 26px 24px 14px; border-bottom: 1px solid #1c2433; }
+  h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: .5px; }
+  header p { margin: 0; color: #8b98a9; font-size: 13px; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  label { display: block; margin-bottom: 14px; font-size: 13px; color: #8b98a9; }
+  input, textarea { width: 100%; margin-top: 6px; padding: 10px 12px; border-radius: 8px;
+         border: 1px solid #243044; background: #111826; color: #e6edf3;
+         font-size: 14px; font-family: inherit; }
+  textarea { min-height: 72px; resize: vertical; }
+  button { padding: 10px 20px; border-radius: 8px; border: 0; background: #2f6feb;
+         color: #fff; font-size: 14px; cursor: pointer; }
+  button:disabled { background: #2a3446; cursor: default; }
+  #status { margin: 16px 0 10px; color: #8b98a9; font-size: 13px; min-height: 18px; }
+  #answer { white-space: pre-wrap; line-height: 1.75; font-size: 15px;
+         border-left: 3px solid #2f6feb; padding-left: 14px; margin: 10px 0 24px; }
+  .cite { border: 1px solid #1f2b3d; border-radius: 8px; padding: 10px 12px;
+         margin-bottom: 8px; background: #0f1522; }
+  .cite strong { font-size: 12px; color: #6ea8fe; }
+  .cite p { margin: 6px 0 0; font-size: 13px; color: #9fb0c4; line-height: 1.6; }
+  h2 { font-size: 14px; color: #8b98a9; font-weight: 600; margin: 24px 0 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LitScope</h1>
+  <p>输入研究主题 -> 多源检索（arXiv / Crossref / PubMed）-> 去重归一化 -> 索引 -> 带可核对引用的回答</p>
+</header>
+<main>
+  <label>研究主题<input id='topic' value='graph neural network'></label>
+  <label>问题<textarea id='question'>图神经网络靠什么机制传播信息？</textarea></label>
+  <button id='go'>提问</button>
+  <div id='status'></div>
+  <div id='answer'></div>
+  <h2 id='cite-title' style='display:none'>引用来源</h2>
+  <div id='citations'></div>
+</main>
+<script>
+var go = document.getElementById('go');
+var statusBox = document.getElementById('status');
+var answerBox = document.getElementById('answer');
+var citeBox = document.getElementById('citations');
+var citeTitle = document.getElementById('cite-title');
+
+function setCites(items) {
+  citeBox.textContent = '';
+  if (!items || !items.length) { citeTitle.style.display = 'none'; return; }
+  citeTitle.style.display = 'block';
+  items.forEach(function (item) {
+    var wrap = document.createElement('div');
+    wrap.className = 'cite';
+    var head = document.createElement('strong');
+    head.textContent = '[' + item.n + '] ' + item.paper_uid + '  #' + item.chunk_index;
+    var body = document.createElement('p');
+    body.textContent = (item.text || '').slice(0, 260);
+    wrap.appendChild(head);
+    wrap.appendChild(body);
+    citeBox.appendChild(wrap);
+  });
+}
+
+go.addEventListener('click', function () {
+  var payload = {
+    topic: document.getElementById('topic').value,
+    question: document.getElementById('question').value
+  };
+  go.disabled = true;
+  statusBox.textContent = '检索并建立索引中，可能需要十几秒...';
+  answerBox.textContent = '';
+  setCites([]);
+  fetch('/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function (response) {
+    return response.json();
+  }).then(function (data) {
+    var usage = data.usage || {};
+    var corpus = data.corpus || {};
+    statusBox.textContent = '完成 · 语料 ' + (corpus.papers || 0) + ' 篇 / '
+      + (corpus.chunks || 0) + ' 块 · ' + (usage.total_tokens || 0) + ' tokens · '
+      + (usage.latency || 0) + 's';
+    answerBox.textContent = data.answer || '(空回答)';
+    setCites((data.citations || {}).valid);
+    go.disabled = false;
+  }).catch(function (error) {
+    statusBox.textContent = '失败: ' + error;
+    go.disabled = false;
+  });
+});
+</script>
+</body>
+</html>

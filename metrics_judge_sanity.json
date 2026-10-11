@@ -1,0 +1,52 @@
+{
+  "samples": 6,
+  "positive_support_rate": 1.0,
+  "negative_rejection_rate": 1.0,
+  "note": "positive = claim paired with its own source; negative = same claim paired with a different paper source",
+  "rows": [
+    {
+      "claim": "该论文的主要贡献是提供了一份关于随机神经网络（Random Neural Networks, RNNs）在监督学习中应用的实用指南，重点讨论其学习能力[1][5]。",
+      "own_uid": "arxiv:1609.04846v1",
+      "foreign_uid": "arxiv:1909.10086v3",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    },
+    {
+      "claim": "该论文提出了 DUGNN（deep universal graph embedding），作者称其为第一个强大且具有理论保证的图神经网络，旨在学习任务无关的图嵌入 [4]。",
+      "own_uid": "arxiv:1909.10086v3",
+      "foreign_uid": "arxiv:2502.01654v1",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    },
+    {
+      "claim": "该论文的主要方法是在澳门使用长短期记忆（LSTM）循环神经网络（RNN）预测空气污染物的未来浓度，并利用了气象数据和空气污染物浓度数据[2]。",
+      "own_uid": "arxiv:2502.01654v1",
+      "foreign_uid": "arxiv:1803.02421v2",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    },
+    {
+      "claim": "该论文提出了两种用于时序信号识别的神经网络：ConditionaL Neural Network（CLNN）与 Masked ConditionaL Neural Network（MCLNN）[1][5]。",
+      "own_uid": "arxiv:1803.02421v2",
+      "foreign_uid": "arxiv:2306.14753v1",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    },
+    {
+      "claim": "该论文的主要贡献是提出将数据驱动的多项式混沌展开（PCE）推广形式——任意多项式混沌（aPC）——用于深度人工神经网络（DANN），从而构建“深度任意多项式混沌神经网络”[2]。",
+      "own_uid": "arxiv:2306.14753v1",
+      "foreign_uid": "arxiv:2406.00552v4",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    },
+    {
+      "claim": "根据所提供的来源，该论文的主要贡献与方法可总结如下：\n\n该论文针对图神经网络（GNN）训练中两种常见方法——小批量（mini-batch）训练与全图（full-graph）训练——进行了全面的实证比较[1][2]。",
+      "own_uid": "arxiv:2406.00552v4",
+      "foreign_uid": "arxiv:1609.04846v1",
+      "own_verdict": "SUPPORTED",
+      "foreign_verdict": "UNSUPPORTED"
+    }
+  ],
+  "judge_balanced_accuracy": 1.0,
+  "judge_bias": 0.0
+}
