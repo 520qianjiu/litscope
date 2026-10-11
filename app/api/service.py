@@ -3,18 +3,22 @@ from typing import Dict, List, Optional
 from ..dedupe import dedupe
 from ..index import build_embedder
 from ..index.pipeline import build_index
+from ..index.retrievers import build_retriever
 from ..llm import LLMClient, build_llm
-from ..rag import ask as rag_ask
+from ..rag import ask_with_retriever
 from ..sources import build_sources
 
 DEFAULT_SOURCES = ['arxiv', 'crossref', 'pubmed']
+DEFAULT_RETRIEVER = 'bm25'
 
 
 class CorpusService:
-    def __init__(self, llm: Optional[LLMClient] = None, embedder=None, source_factory=None):
+    def __init__(self, llm: Optional[LLMClient] = None, embedder=None, source_factory=None,
+                 retriever: str = DEFAULT_RETRIEVER):
         self._llm = llm
         self.embedder = embedder or build_embedder()
         self.source_factory = source_factory or build_sources
+        self.default_retriever = retriever
         self.cache: Dict[str, dict] = {}
 
     @property
@@ -56,9 +60,17 @@ class CorpusService:
             'store': store,
             'errors': errors,
             'sources': chosen,
+            'retrievers': {},
         }
         self.cache[key] = entry
         return entry
+
+    def retriever_for(self, entry: dict, kind: str = ''):
+        name = (kind or self.default_retriever or DEFAULT_RETRIEVER).strip().lower()
+        cache = entry.setdefault('retrievers', {})
+        if name not in cache:
+            cache[name] = build_retriever(name, entry['store'], self.embedder)
+        return cache[name]
 
     def search(self, query: str, limit: int = 10, sources: Optional[List[str]] = None) -> dict:
         chosen = list(sources) if sources else list(DEFAULT_SOURCES)
@@ -78,10 +90,11 @@ class CorpusService:
             'errors': errors,
         }
 
-    def ask(self, topic: str, question: str, top_k: int = 5,
-            per_source: int = 8, sources: Optional[List[str]] = None) -> dict:
+    def ask(self, topic: str, question: str, top_k: int = 5, per_source: int = 8,
+            sources: Optional[List[str]] = None, retriever: str = '') -> dict:
         entry = self.corpus(topic, per_source, sources)
-        result = rag_ask(question, entry['store'], self.embedder, self.llm, top_k=top_k)
+        engine = self.retriever_for(entry, retriever)
+        result = ask_with_retriever(question, engine, self.llm, top_k=top_k)
         result['corpus'] = {
             'topic': topic,
             'papers': len(entry['papers']),

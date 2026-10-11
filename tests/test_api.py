@@ -49,13 +49,12 @@ def make_client(papers=None, replies=None, error=None):
 
 
 class TestHealth(unittest.TestCase):
-    def test_health_reports_embedder(self):
+    def test_health_reports_embedder_and_retriever(self):
         client, _ = make_client()
-        response = client.get('/api/health')
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
+        body = client.get('/api/health').json()
         self.assertEqual(body['status'], 'ok')
         self.assertEqual(body['embedder'], 'hashing')
+        self.assertEqual(body['retriever'], 'bm25')
         self.assertEqual(body['llm'], 'ready')
 
 
@@ -72,7 +71,6 @@ class TestSearch(unittest.TestCase):
     def test_search_returns_deduped_papers(self):
         client, source = make_client()
         response = client.get('/api/search', params={'q': 'graph neural network', 'limit': 5})
-        self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body['count'], 2)
         self.assertEqual(body['papers'][0]['uid'], 'arxiv:1')
@@ -92,10 +90,10 @@ class TestSearch(unittest.TestCase):
 class TestAsk(unittest.TestCase):
     def test_ask_returns_answer_and_citations(self):
         client, _ = make_client()
-        response = client.post('/api/ask', json={'topic': 'gnn', 'question': 'how do gnns work'})
+        response = client.post('/api/ask', json={
+            'topic': 'gnn', 'question': 'graph neural networks messages'})
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertIn('messages', body['answer'] + 'messages')
         self.assertEqual(body['citations']['invalid'], [])
         self.assertEqual(len(body['citations']['valid']), 1)
         self.assertEqual(body['citations']['valid'][0]['paper_uid'], 'arxiv:1')
@@ -103,18 +101,28 @@ class TestAsk(unittest.TestCase):
 
     def test_ask_rejects_blank_question(self):
         client, _ = make_client()
-        response = client.post('/api/ask', json={'topic': 'gnn', 'question': '   '})
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(client.post('/api/ask', json={
+            'topic': 'gnn', 'question': '   '}).status_code, 400)
+
+    def test_ask_with_no_lexical_overlap_returns_empty(self):
+        # a Chinese question against an English-only corpus has zero token overlap
+        client, _ = make_client()
+        body = client.post('/api/ask', json={
+            'topic': 'gnn', 'question': '图神经网络怎么传播信息？'}).json()
+        self.assertTrue(body['empty'])
+        self.assertEqual(body['contexts'], [])
+        self.assertEqual(body['answer'], '')
 
     def test_corpus_is_cached_between_calls(self):
         client, source = make_client(replies=['First [1].', 'Second [1].'])
-        client.post('/api/ask', json={'topic': 'gnn', 'question': 'one'})
-        client.post('/api/ask', json={'topic': 'gnn', 'question': 'two'})
+        client.post('/api/ask', json={'topic': 'gnn', 'question': 'graph neural networks'})
+        client.post('/api/ask', json={'topic': 'gnn', 'question': 'graph neural network training'})
         self.assertEqual(len(source.calls), 1)
         self.assertEqual(client.get('/api/health').json()['cached_corpora'], 1)
 
     def test_different_topic_rebuilds_corpus(self):
         client, source = make_client(replies=['First [1].', 'Second [1].'])
-        client.post('/api/ask', json={'topic': 'gnn', 'question': 'one'})
-        client.post('/api/ask', json={'topic': 'other topic', 'question': 'two'})
+        client.post('/api/ask', json={'topic': 'gnn', 'question': 'graph neural networks'})
+        client.post('/api/ask', json={'topic': 'other topic',
+                                      'question': 'graph neural network training'})
         self.assertEqual(len(source.calls), 2)

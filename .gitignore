@@ -6,3 +6,5 @@ __pycache__/
 data/
 node_modules/
 .next/
+work_capture.json
+_*.tmp

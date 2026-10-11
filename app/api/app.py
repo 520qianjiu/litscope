@@ -13,6 +13,7 @@ class AskRequest(BaseModel):
     topic: str = 'graph neural network'
     top_k: int = 5
     per_source: int = 8
+    retriever: str = ''
     sources: Optional[List[str]] = None
 
 
@@ -33,6 +34,7 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
         return {
             'status': 'ok',
             'embedder': svc.embedder.name,
+            'retriever': svc.default_retriever,
             'cached_corpora': len(svc.cache),
             'llm': 'ready' if svc.llm_ready else 'not configured',
         }
@@ -52,7 +54,8 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
             raise HTTPException(status_code=400, detail='question must not be empty')
         try:
             return svc.ask(request.topic, request.question, top_k=request.top_k,
-                           per_source=request.per_source, sources=request.sources)
+                           per_source=request.per_source, sources=request.sources,
+                           retriever=request.retriever)
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 

@@ -8,8 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.dedupe import dedupe
 from app.index import build_embedder
 from app.index.pipeline import build_index
+from app.index.retrievers import build_retriever
 from app.llm import build_llm
-from app.rag import ask
+from app.rag import ask_with_retriever
 from app.sources import build_sources
 
 
@@ -31,6 +32,8 @@ def main(argv=None):
     parser.add_argument('--question', required=True)
     parser.add_argument('--papers', type=int, default=8, help='per-source paper limit')
     parser.add_argument('--sources', default='arxiv,crossref,pubmed')
+    parser.add_argument('--retriever', default='bm25', choices=['bm25', 'dense'],
+                        help='bm25 (lexical baseline) or dense (embedding)')
     parser.add_argument('--top-k', type=int, default=5)
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
@@ -41,10 +44,10 @@ def main(argv=None):
 
     embedder = build_embedder()
     store = build_index(papers, embedder)
-    print('[index] ' + str(len(store)) + ' chunks with ' + embedder.name, file=sys.stderr)
+    retriever = build_retriever(args.retriever, store, embedder)
+    print('[index] ' + str(len(store)) + ' chunks, retriever=' + retriever.name, file=sys.stderr)
 
-    llm = build_llm()
-    result = ask(args.question, store, embedder, llm, top_k=args.top_k)
+    result = ask_with_retriever(args.question, retriever, build_llm(), top_k=args.top_k)
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -53,7 +56,11 @@ def main(argv=None):
     print('')
     print('QUESTION: ' + args.question)
     print('')
-    print(result['answer'] or '(空回答)')
+    if result['empty']:
+        print('检索不到与问题词面重叠的语料，已放弃回答（不编造）。')
+        print('提示：当前语料为英文，中文问题需要多语言嵌入模型，见 README 已知限制。')
+    else:
+        print(result['answer'])
     print('')
     print('--- citations ---')
     for item in result['citations']['valid']:
@@ -65,7 +72,8 @@ def main(argv=None):
     usage = result.get('usage') or {}
     print('')
     print('--- usage ---')
-    print('model=' + str(usage.get('model')) + '  tokens=' + str(usage.get('total_tokens'))
+    print('retriever=' + result['retriever'] + '  model=' + str(usage.get('model'))
+          + '  tokens=' + str(usage.get('total_tokens'))
           + '  latency=' + str(usage.get('latency')) + 's')
     return 0
 
