@@ -11,6 +11,7 @@ from app.index import build_embedder
 from app.index.bm25 import tokenize
 from app.index.pipeline import build_index
 from app.index.retrievers import BM25Retriever, DenseRetriever
+from app.llm import build_llm
 from app.sources import build_sources
 from eval.metrics import mean, percentile, recall_at_k, reciprocal_rank
 
@@ -22,20 +23,48 @@ STOPWORDS = {
     'most', 'not', 'no', 'however', 'thus', 'between', 'within', 'both', 'each', 'all',
 }
 
+CACHE_PATH = Path(__file__).resolve().parent / 'zh_titles.json'
+TRANSLATE_SYSTEM = ('You translate scientific paper titles into Simplified Chinese. '
+                    'Reply with the translation only. No quotes, no explanation, no pinyin.')
+
 
 def keyword_query(abstract: str, limit: int = 10) -> str:
     words = [w for w in tokenize(abstract or '') if w not in STOPWORDS and len(w) > 2]
     return ' '.join(words[:limit])
 
 
-def build_items(papers, mode: str, limit: int):
+def load_cache() -> dict:
+    if CACHE_PATH.is_file():
+        return json.loads(CACHE_PATH.read_text(encoding='utf-8'))
+    return {}
+
+
+def save_cache(cache: dict) -> None:
+    CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def zh_query(llm, title: str, cache: dict) -> str:
+    if title in cache:
+        return cache[title]
+    response = llm.complete('Title: ' + title, system=TRANSLATE_SYSTEM,
+                            temperature=0.0, max_tokens=120)
+    text = ' '.join((response.text or '').split())
+    cache[title] = text
+    return text
+
+
+def build_items(papers, mode, limit, llm=None, cache=None):
     items = []
     for paper in papers[:limit]:
         if mode == 'title':
             query = paper.title
+        elif mode == 'zh':
+            if llm is None:
+                raise ValueError('zh query mode needs an LLM client')
+            query = zh_query(llm, paper.title, cache if cache is not None else {})
         else:
             query = keyword_query(paper.abstract or paper.title)
-        if not query.strip():
+        if not (query or '').strip():
             continue
         items.append({'query': query, 'expected': [paper.uid], 'title': paper.title})
     return items
@@ -46,11 +75,14 @@ def evaluate(retriever, items, top_k: int) -> dict:
     rrs = []
     top_scores = []
     latencies = []
+    empty_hits = 0
     rows = []
     for item in items:
         started = time.perf_counter()
         hits = retriever.search(item['query'], top_k)
         latencies.append(time.perf_counter() - started)
+        if not hits:
+            empty_hits += 1
         uids = [record.get('paper_uid') for _score, record in hits]
         recall = recall_at_k(uids, item['expected'], top_k)
         rr = reciprocal_rank(uids, item['expected'])
@@ -62,6 +94,7 @@ def evaluate(retriever, items, top_k: int) -> dict:
     return {
         'retriever': retriever.name,
         'items': len(items),
+        'empty_results': empty_hits,
         'recall_at_k': round(mean(recalls), 4),
         'mrr': round(mean(rrs), 4),
         'mean_top_score': round(mean(top_scores), 4),
@@ -77,7 +110,7 @@ def main(argv=None):
     parser.add_argument('--papers', type=int, default=8)
     parser.add_argument('--sources', default='arxiv,crossref,pubmed')
     parser.add_argument('--retrievers', default='bm25,dense')
-    parser.add_argument('--query-mode', default='keywords', choices=['keywords', 'title'])
+    parser.add_argument('--query-mode', default='keywords', choices=['keywords', 'title', 'zh'])
     parser.add_argument('--questions', type=int, default=12)
     parser.add_argument('--top-k', type=int, default=5)
     parser.add_argument('--label', default='')
@@ -94,7 +127,15 @@ def main(argv=None):
     corpus = dedupe(pooled)
     embedder = build_embedder()
     store = build_index(corpus, embedder)
-    items = build_items(corpus, args.query_mode, args.questions)
+
+    llm = None
+    cache = {}
+    if args.query_mode == 'zh':
+        llm = build_llm()
+        cache = load_cache()
+    items = build_items(corpus, args.query_mode, args.questions, llm=llm, cache=cache)
+    if args.query_mode == 'zh':
+        save_cache(cache)
 
     print('corpus=' + str(len(corpus)) + ' papers, index=' + str(len(store)) + ' chunks, '
           + 'embedder=' + embedder.name + ', queries=' + str(len(items))
@@ -110,7 +151,7 @@ def main(argv=None):
         results.append(report)
         print('  ' + report['retriever'] + ': recall@' + str(args.top_k) + '='
               + str(report['recall_at_k']) + ' mrr=' + str(report['mrr'])
-              + ' top_score=' + str(report['mean_top_score']), file=sys.stderr)
+              + ' empty=' + str(report['empty_results']), file=sys.stderr)
 
     payload = {
         'label': args.label,
@@ -126,15 +167,20 @@ def main(argv=None):
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
 
     print('')
-    header = 'retriever'.ljust(18) + 'recall@' + str(args.top_k).ljust(4) + 'mrr'.ljust(10) + 'mean_top_score'
+    header = ('retriever'.ljust(26) + 'recall@' + str(args.top_k).ljust(4)
+              + 'mrr'.ljust(10) + 'empty'.ljust(8) + 'mean_top_score')
     print(header)
     print('-' * len(header))
     for row in results:
-        print(row['retriever'].ljust(18)
+        print(row['retriever'].ljust(26)
               + str(row['recall_at_k']).ljust(10)
               + str(row['mrr']).ljust(10)
+              + str(row['empty_results']).ljust(8)
               + str(row['mean_top_score']))
     print('')
+    print('sample queries:')
+    for item in items[:3]:
+        print('   ' + item['query'][:90])
     print('written to ' + str(out))
     return 0
 

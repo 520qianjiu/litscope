@@ -129,8 +129,8 @@ def build_diagram():
         ('LLM-as-judge', '引用支持率'),
         ('负对照', '平衡准确率'),
         ('metrics.json', 'R@k / MRR / 延迟')], accent=AMBER)
-    draw.text((46, 918), '实测：44 篇论文 / 205 chunks，20 条关键词查询', font=font(18), fill=MUTED)
-    draw.text((46, 952), 'BM25  R@1 0.95  MRR 0.975      哈希嵌入  R@1 0.90  MRR 0.942',
+    draw.text((46, 918), '实测：44 篇论文 / 205 chunks', font=font(18), fill=MUTED)
+    draw.text((46, 952), '英文查询 BM25 MRR 0.975 约等于 bge-m3 0.960   |   中文查询 BM25 recall@5 0.13 vs bge-m3 1.00',
               font=font(18, True), fill=FG)
     ASSETS.mkdir(parents=True, exist_ok=True)
     out = ASSETS / 'architecture.png'
