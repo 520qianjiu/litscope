@@ -14,7 +14,7 @@
 
 ## 1. 本地先跑通
 
-    cd D:\CodexHome\2026-10-08\nature-skills\outputs\litscope
+    cd D:\projects\litscope
     pip install -r requirements.txt
     python scripts/ping_llm.py
     python scripts/serve.py
