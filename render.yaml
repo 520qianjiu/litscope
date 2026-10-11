@@ -15,7 +15,15 @@ services:
         value: https://api.deepseek.com
       - key: DEEPSEEK_MODEL
         value: deepseek-chat
+      - key: LITSCOPE_RETRIEVER
+        value: dense
       - key: EMBEDDING_PROVIDER
-        value: hashing
+        value: openai
+      - key: EMBEDDING_BASE_URL
+        value: https://api.siliconflow.cn/v1
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-m3
       - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: EMBEDDING_API_KEY
         sync: false

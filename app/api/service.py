@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Optional
 
 from ..dedupe import dedupe
@@ -9,7 +10,7 @@ from ..rag import ask_with_retriever
 from ..sources import build_sources
 
 DEFAULT_SOURCES = ['arxiv', 'crossref', 'pubmed']
-DEFAULT_RETRIEVER = 'bm25'
+DEFAULT_RETRIEVER = (os.environ.get('LITSCOPE_RETRIEVER') or 'bm25').strip().lower()
 
 
 class CorpusService:
