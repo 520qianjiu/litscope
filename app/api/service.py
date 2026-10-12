@@ -11,16 +11,43 @@ from ..sources import build_sources
 
 DEFAULT_SOURCES = ['arxiv', 'crossref', 'pubmed']
 DEFAULT_RETRIEVER = (os.environ.get('LITSCOPE_RETRIEVER') or 'bm25').strip().lower()
+CONFIG_KEYS = [
+    'LLM_PROVIDER',
+    'DEEPSEEK_API_KEY',
+    'DEEPSEEK_BASE_URL',
+    'DEEPSEEK_MODEL',
+    'EMBEDDING_PROVIDER',
+    'EMBEDDING_BASE_URL',
+    'EMBEDDING_API_KEY',
+    'EMBEDDING_MODEL',
+    'LITSCOPE_RETRIEVER',
+]
 
 
 class CorpusService:
-    def __init__(self, llm: Optional[LLMClient] = None, embedder=None, source_factory=None,
-                 retriever: str = DEFAULT_RETRIEVER):
+    def __init__(self, llm: Optional[LLMClient] = None, embedder=None,
+                 source_factory=None, retriever: str = DEFAULT_RETRIEVER):
         self._llm = llm
-        self.embedder = embedder or build_embedder()
+        self.embedder_error = ''
+        if embedder is not None:
+            self.embedder = embedder
+        else:
+            try:
+                self.embedder = build_embedder()
+            except Exception as exc:
+                # A config typo must not take the whole service down. Start with the
+                # offline fallback and surface the real reason via /api/health.
+                self.embedder_error = str(exc)[:300]
+                self.embedder = build_embedder('hashing')
         self.source_factory = source_factory or build_sources
         self.default_retriever = retriever
         self.cache: Dict[str, dict] = {}
+
+    def config_report(self) -> Dict[str, str]:
+        report = {}
+        for key in CONFIG_KEYS:
+            report[key] = 'set' if (os.environ.get(key) or '').strip() else 'MISSING'
+        return report
 
     @property
     def llm(self) -> LLMClient:

@@ -31,13 +31,19 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
 
     @app.get('/api/health')
     def health() -> dict:
-        return {
+        body = {
             'status': 'ok',
             'embedder': svc.embedder.name,
             'retriever': svc.default_retriever,
             'cached_corpora': len(svc.cache),
             'llm': 'ready' if svc.llm_ready else 'not configured',
         }
+        # Only expose the config report when something is actually wrong, so a healthy
+        # deployment does not advertise its environment on a public URL.
+        if svc.embedder_error or body['llm'] != 'ready':
+            body['embedder_error'] = svc.embedder_error or None
+            body['env'] = svc.config_report()
+        return body
 
     @app.get('/api/search')
     def search(q: str = Query(..., min_length=2), limit: int = 10,
