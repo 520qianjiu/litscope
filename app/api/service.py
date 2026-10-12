@@ -11,6 +11,7 @@ from ..sources import build_sources
 
 DEFAULT_SOURCES = ['arxiv', 'crossref', 'pubmed']
 DEFAULT_RETRIEVER = (os.environ.get('LITSCOPE_RETRIEVER') or 'bm25').strip().lower()
+SECRET_KEYS = {'DEEPSEEK_API_KEY', 'EMBEDDING_API_KEY'}
 CONFIG_KEYS = [
     'LLM_PROVIDER',
     'DEEPSEEK_API_KEY',
@@ -20,6 +21,8 @@ CONFIG_KEYS = [
     'EMBEDDING_BASE_URL',
     'EMBEDDING_API_KEY',
     'EMBEDDING_MODEL',
+    'EMBEDDING_DIM',
+    'EMBEDDING_NGRAM',
     'LITSCOPE_RETRIEVER',
 ]
 
@@ -48,9 +51,17 @@ class CorpusService:
         self.cache: Dict[str, dict] = {}
 
     def config_report(self) -> Dict[str, str]:
+        # Non-secret values are shown verbatim so a misconfigured deployment can be
+        # diagnosed from the outside. Secrets only ever report their presence.
         report = {}
         for key in CONFIG_KEYS:
-            report[key] = 'set' if (os.environ.get(key) or '').strip() else 'MISSING'
+            value = (os.environ.get(key) or '').strip()
+            if not value:
+                report[key] = 'MISSING'
+            elif key in SECRET_KEYS:
+                report[key] = 'set(len=' + str(len(value)) + ')'
+            else:
+                report[key] = value[:60]
         return report
 
     @property
