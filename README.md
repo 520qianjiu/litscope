@@ -4,6 +4,8 @@
 
 ![架构](docs/assets/architecture.png)
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/520qianjiu/litscope)
+
 ## 解决什么问题
 
 做综述时，检索、去重、归纳、标注出处是四件分离的手工活。LitScope 把它们串成一条可评测的流水线：多源检索 -> 去重归一化 -> 分块嵌入 -> 检索 -> 带引用生成 -> 引用审计。
