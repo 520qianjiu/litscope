@@ -30,7 +30,7 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
         return INDEX_HTML
 
     @app.get('/api/health')
-    def health() -> dict:
+    def health(debug: int = 0) -> dict:
         body = {
             'status': 'ok',
             'embedder': svc.embedder.name,
@@ -40,7 +40,9 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
         }
         # Only expose the config report when something is actually wrong, so a healthy
         # deployment does not advertise its environment on a public URL.
-        if svc.embedder_error or body['llm'] != 'ready':
+        # ?debug=1 always returns the config report (key names only, never values) so a
+        # misconfigured deployment can be diagnosed without opening the platform UI.
+        if debug or svc.embedder_error or body['llm'] != 'ready':
             body['embedder_error'] = svc.embedder_error or None
             body['env'] = svc.config_report()
         return body
