@@ -7,6 +7,23 @@ from typing import List, Sequence
 
 from ..config import HTTP_TIMEOUT
 
+DEFAULT_HASHING_DIM = 256
+DEFAULT_HASHING_NGRAM = 3
+
+
+def _as_int(name: str, default: int) -> int:
+    # A malformed numeric env var must never take the service down. Fall back to the
+    # default instead of raising: this exact crash happened when EMBEDDING_DIM held a
+    # model name (BAAI/bge-m3) and int() blew up at import time.
+    raw = (os.environ.get(name) or '').strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
 
 class Embedder:
     name = 'base'
@@ -22,7 +39,7 @@ class Embedder:
 class HashingEmbedder(Embedder):
     name = 'hashing'
 
-    def __init__(self, dim: int = 256, ngram: int = 3):
+    def __init__(self, dim: int = DEFAULT_HASHING_DIM, ngram: int = DEFAULT_HASHING_NGRAM):
         self.dim = int(dim)
         self.ngram = int(ngram)
 
@@ -87,15 +104,19 @@ def build_embedder(name: str = '') -> Embedder:
     provider = (name or os.environ.get('EMBEDDING_PROVIDER') or 'hashing').strip().lower()
     if provider in ('hashing', 'local', 'offline'):
         return HashingEmbedder(
-            dim=int(os.environ.get('EMBEDDING_DIM') or 256),
-            ngram=int(os.environ.get('EMBEDDING_NGRAM') or 3),
+            dim=_as_int('EMBEDDING_DIM', DEFAULT_HASHING_DIM),
+            ngram=_as_int('EMBEDDING_NGRAM', DEFAULT_HASHING_NGRAM),
         )
     if provider in ('openai', 'openai-compatible', 'siliconflow', 'zhipu'):
-        base_url = os.environ.get('EMBEDDING_BASE_URL', '')
-        api_key = os.environ.get('EMBEDDING_API_KEY', '')
-        model = os.environ.get('EMBEDDING_MODEL', '')
-        if not (base_url and api_key and model):
-            raise ValueError('EMBEDDING_BASE_URL / EMBEDDING_API_KEY / EMBEDDING_MODEL are required')
-        return OpenAICompatEmbedder(base_url, api_key, model,
-                                    dim=int(os.environ.get('EMBEDDING_DIM') or 0))
+        base_url = (os.environ.get('EMBEDDING_BASE_URL') or '').strip()
+        api_key = (os.environ.get('EMBEDDING_API_KEY') or '').strip()
+        model = (os.environ.get('EMBEDDING_MODEL') or '').strip()
+        missing = [key for key, value in (
+            ('EMBEDDING_BASE_URL', base_url),
+            ('EMBEDDING_API_KEY', api_key),
+            ('EMBEDDING_MODEL', model),
+        ) if not value]
+        if missing:
+            raise ValueError('embedding provider ' + provider + ' needs: ' + ', '.join(missing))
+        return OpenAICompatEmbedder(base_url, api_key, model, dim=_as_int('EMBEDDING_DIM', 0))
     raise ValueError('unknown embedding provider: ' + provider)

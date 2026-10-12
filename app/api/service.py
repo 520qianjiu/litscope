@@ -2,7 +2,7 @@ import os
 from typing import Dict, List, Optional
 
 from ..dedupe import dedupe
-from ..index import build_embedder
+from ..index import HashingEmbedder, build_embedder
 from ..index.pipeline import build_index
 from ..index.retrievers import build_retriever
 from ..llm import LLMClient, build_llm
@@ -38,7 +38,11 @@ class CorpusService:
                 # A config typo must not take the whole service down. Start with the
                 # offline fallback and surface the real reason via /api/health.
                 self.embedder_error = str(exc)[:300]
-                self.embedder = build_embedder('hashing')
+                try:
+                    self.embedder = build_embedder('hashing')
+                except Exception:
+                    # Belt and braces: the fallback itself must never take the service down.
+                    self.embedder = HashingEmbedder()
         self.source_factory = source_factory or build_sources
         self.default_retriever = retriever
         self.cache: Dict[str, dict] = {}
