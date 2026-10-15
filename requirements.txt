@@ -2,3 +2,4 @@ httpx>=0.27
 python-dotenv>=1.0
 fastapi>=0.110
 uvicorn>=0.27
+pymupdf>=1.24
