@@ -151,7 +151,13 @@ class CorpusService:
         usable = sum(1 for value in fetched.values() if getattr(value, 'ok', False))
         summary['with_fulltext'] = usable
         if not usable:
+            # Surface *why* nothing came back: 'arxiv blocked the IP' and 'this topic
+            # has no open-access papers' need very different responses.
             summary['error'] = 'no full text available'
+            summary['reasons'] = [
+                {'paper': uid, 'reason': (getattr(value, 'error', '') or 'unknown')[:90]}
+                for uid, value in list(fetched.items())[:4]
+            ]
             return summary
         try:
             store, stats = build_fulltext_index(papers, self.embedder, fetched)
