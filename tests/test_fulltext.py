@@ -222,3 +222,139 @@ class TestCitationCarriesSection(unittest.TestCase):
                                 'text': 'body'}}]
         result = resolve_citations('The claim holds [1].', contexts)
         self.assertEqual(result['valid'][0]['section'], '')
+
+
+class TestPmcSections(unittest.TestCase):
+    def document(self):
+        return {'passages': [
+            {'infons': {'section_type': 'INTRO', 'type': 'paragraph'}, 'text': 'Opening remark.'},
+            {'infons': {'section_type': 'METHODS', 'type': 'paragraph'}, 'text': 'We trained 100 epochs.'},
+            {'infons': {'section_type': 'INTRO', 'type': 'paragraph'}, 'text': 'Second intro paragraph.'},
+            {'infons': {'section_type': 'RESULTS', 'type': 'paragraph'}, 'text': 'Accuracy improved.'},
+        ]}
+
+    def test_groups_passages_by_section_type(self):
+        from app.fulltext import bioc_sections
+        names = [s.name for s in bioc_sections(self.document())]
+        self.assertEqual(names, ['INTRODUCTION', 'METHODS', 'RESULTS'])
+
+    def test_merges_repeated_sections_in_order(self):
+        from app.fulltext import bioc_sections
+        intro = [s for s in bioc_sections(self.document()) if s.name == 'INTRODUCTION'][0]
+        self.assertIn('Opening remark.', intro.text)
+        self.assertIn('Second intro paragraph.', intro.text)
+
+    def test_unknown_section_type_is_kept_not_dropped(self):
+        from app.fulltext import bioc_sections
+        doc = {'passages': [{'infons': {'section_type': 'WEIRD'}, 'text': 'Body.'}]}
+        self.assertEqual(bioc_sections(doc)[0].name, 'WEIRD')
+
+    def test_missing_section_type_becomes_fulltext(self):
+        from app.fulltext import bioc_sections
+        doc = {'passages': [{'infons': {}, 'text': 'Body.'}]}
+        self.assertEqual(bioc_sections(doc)[0].name, 'FULLTEXT')
+
+    def test_blank_passages_are_ignored(self):
+        from app.fulltext import bioc_sections
+        doc = {'passages': [{'infons': {'section_type': 'INTRO'}, 'text': '   '}]}
+        self.assertEqual(bioc_sections(doc), [])
+
+
+class TestPmcFailureReporting(unittest.TestCase):
+    def test_paper_without_pmc_record_reports_reason(self):
+        import app.fulltext as ft
+        original = ft.pmc_id
+        ft.pmc_id = lambda *a, **k: None
+        try:
+            result = ft.load_pmc_fulltext(Paper(source='pubmed', source_id='123', title='t'))
+            self.assertFalse(result.ok)
+            self.assertIn('no PMC record', result.error)
+        finally:
+            ft.pmc_id = original
+
+    def test_bioc_failure_reports_reason(self):
+        import app.fulltext as ft
+        origin_id, origin_doc = ft.pmc_id, ft.bioc_document
+        ft.pmc_id = lambda *a, **k: 'PMC1'
+        def boom(*a, **k):
+            raise RuntimeError('bioc fetch failed: HTTPError')
+        ft.bioc_document = boom
+        try:
+            result = ft.load_pmc_fulltext(Paper(source='pubmed', source_id='123', title='t'))
+            self.assertFalse(result.ok)
+            self.assertIn('bioc fetch failed', result.error)
+        finally:
+            ft.pmc_id, ft.bioc_document = origin_id, origin_doc
+
+    def test_successful_pmc_load_returns_sections(self):
+        import app.fulltext as ft
+        origin_id, origin_doc = ft.pmc_id, ft.bioc_document
+        ft.pmc_id = lambda *a, **k: 'PMC1'
+        ft.bioc_document = lambda *a, **k: {'passages': [
+            {'infons': {'section_type': 'RESULTS'}, 'text': 'They improved accuracy.'}]}
+        try:
+            result = ft.load_pmc_fulltext(Paper(source='pubmed', source_id='123', title='t'))
+            self.assertTrue(result.ok)
+            self.assertEqual(result.sections[0].name, 'RESULTS')
+        finally:
+            ft.pmc_id, ft.bioc_document = origin_id, origin_doc
+
+    def test_load_fulltext_routes_pubmed_to_pmc(self):
+        import app.fulltext as ft
+        origin = ft.load_pmc_fulltext
+        seen = []
+        ft.load_pmc_fulltext = lambda paper, **k: (seen.append(paper.uid) or ft.FullText(source_id='x', error='stub'))
+        try:
+            ft.load_fulltext(Paper(source='pubmed', source_id='999', title='t'))
+        finally:
+            ft.load_pmc_fulltext = origin
+        self.assertEqual(seen, ['pubmed:999'])
+
+
+class TestBiocRetry(unittest.TestCase):
+    def test_retries_transient_failure_then_succeeds(self):
+        import app.fulltext as ft
+        calls = {'n': 0}
+
+        class FakeResponse:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self):
+                return b'[{"documents": [{"passages": [{"infons": {}, "text": "body"}]}]}]'
+
+        original_open, original_sleep = ft.urllib.request.urlopen, ft.time.sleep
+
+        def flaky(*args, **kwargs):
+            calls['n'] += 1
+            if calls['n'] < 2:
+                raise OSError('transient upstream failure')
+            return FakeResponse()
+
+        ft.urllib.request.urlopen = flaky
+        ft.time.sleep = lambda seconds: None
+        try:
+            document = ft.bioc_document('PMC1', attempts=3)
+            self.assertEqual(calls['n'], 2)
+            self.assertEqual(document['passages'][0]['text'], 'body')
+        finally:
+            ft.urllib.request.urlopen = original_open
+            ft.time.sleep = original_sleep
+
+    def test_gives_up_after_the_last_attempt(self):
+        import app.fulltext as ft
+        calls = {'n': 0}
+        original_open, original_sleep = ft.urllib.request.urlopen, ft.time.sleep
+
+        def always_fail(*args, **kwargs):
+            calls['n'] += 1
+            raise OSError('upstream down')
+
+        ft.urllib.request.urlopen = always_fail
+        ft.time.sleep = lambda seconds: None
+        try:
+            with self.assertRaises(RuntimeError):
+                ft.bioc_document('PMC1', attempts=3)
+            self.assertEqual(calls['n'], 3)
+        finally:
+            ft.urllib.request.urlopen = original_open
+            ft.time.sleep = original_sleep

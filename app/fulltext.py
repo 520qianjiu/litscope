@@ -6,8 +6,10 @@ lazily so that importing it (and unit-testing the section logic) never needs the
 dependency installed.
 """
 
+import json
 import os
 import re
+import time
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -153,6 +155,8 @@ def pdf_to_text(data: bytes) -> str:
 
 def load_fulltext(paper, cache_dir: Optional[str] = None) -> FullText:
     """Fetch + parse one paper. Never raises: failures come back as FullText(error=...)."""
+    if getattr(paper, 'source', '') == 'pubmed':
+        return load_pmc_fulltext(paper)
     identifier = arxiv_id(paper) or getattr(paper, 'source_id', '')
     url = pdf_url(paper)
     if not url:
@@ -178,3 +182,106 @@ def load_many(papers, cache_dir: Optional[str] = None, limit: Optional[int] = No
         result = load_fulltext(paper, cache_dir=cache_dir)
         out[paper.uid] = result
     return out
+
+
+# --------------------------------------------------------------------------
+# PubMed Central: many PubMed records have no downloadable full text at all.
+# Only the PMC Open Access subset can be fetched legally, so this path reports
+# an explicit reason instead of pretending every paper has a body.
+# --------------------------------------------------------------------------
+
+PMC_ELINK = ('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi'
+             '?dbfrom=pubmed&db=pmc&retmode=json&id=')
+PMC_BIOC = 'https://www.ncbi.nlm.nih.gov/research/bionlp/RESTful/pmcoa.cgi/BioC_json/{}/unicode'
+
+SECTION_TYPE_MAP = {
+    'INTRO': 'INTRODUCTION',
+    'METHODS': 'METHODS',
+    'METHOD': 'METHODS',
+    'RESULTS': 'RESULTS',
+    'DISCUSS': 'DISCUSSION',
+    'CONCL': 'CONCLUSION',
+    'ABSTRACT': 'ABSTRACT',
+    'SUPPL': 'SUPPLEMENTARY',
+    'FIG': 'FIGURES',
+    'TABLE': 'TABLES',
+}
+
+
+def pmc_id(pmid: str, timeout: float = None, attempts: int = 3) -> Optional[str]:
+    """Map a PubMed id to a PMC id. Returns None when the record is not in PMC."""
+    if not pmid:
+        return None
+    request = urllib.request.Request(PMC_ELINK + str(pmid), headers={'User-Agent': USER_AGENT})
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout or HTTP_TIMEOUT) as response:
+                data = json.loads(response.read().decode('utf-8', errors='replace'))
+            for linkset in data.get('linksets') or []:
+                for link in linkset.get('linksetdbs') or []:
+                    if link.get('dbto') == 'pmc' and link.get('links'):
+                        return 'PMC' + str(link['links'][0])
+            return None
+        except Exception:
+            if attempt + 1 < attempts:
+                time.sleep(1.5 * (attempt + 1))
+    return None
+
+
+def bioc_document(pmcid: str, timeout: float = None, attempts: int = 4):
+    """Fetch the PMC BioC JSON document. NCBI answers 429 with an HTML page when
+    it rate-limits, so a non-JSON body is treated as a retryable failure."""
+    url = PMC_BIOC.format(pmcid)
+    request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    last_error = 'unknown'
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout or HTTP_TIMEOUT) as response:
+                raw = response.read().decode('utf-8', errors='replace')
+            payload = json.loads(raw)
+            documents = (payload[0] if isinstance(payload, list) else payload).get('documents') or []
+            if not documents:
+                raise ValueError('empty BioC payload')
+            return documents[0]
+        except Exception as exc:
+            last_error = type(exc).__name__
+            if attempt + 1 < attempts:
+                time.sleep(5.0 * (attempt + 1))
+    raise RuntimeError('bioc fetch failed: ' + last_error)
+
+
+def bioc_sections(document) -> List[Section]:
+    """Group BioC passages by section_type. BioC already carries the section on
+    every passage, so no heading heuristics are needed here."""
+    grouped = {}
+    order = []
+    for passage in document.get('passages') or []:
+        infons = passage.get('infons') or {}
+        raw_name = str(infons.get('section_type') or '').strip().upper()
+        name = SECTION_TYPE_MAP.get(raw_name, raw_name or 'FULLTEXT')
+        text = (passage.get('text') or '').strip()
+        if not text:
+            continue
+        if name not in grouped:
+            grouped[name] = []
+            order.append(name)
+        grouped[name].append(text)
+    return [Section(name=name, text='\n'.join(grouped[name])) for name in order]
+
+
+def load_pmc_fulltext(paper, timeout: float = None) -> FullText:
+    pmid = str(getattr(paper, 'source_id', '') or '').strip()
+    if not pmid:
+        return FullText(source_id=pmid, error='missing pmid')
+    pmcid = pmc_id(pmid, timeout=timeout)
+    if not pmcid:
+        return FullText(source_id=pmid, error='no PMC record (not open access)')
+    try:
+        document = bioc_document(pmcid, timeout=timeout)
+    except Exception as exc:
+        return FullText(source_id=pmid, error=str(exc)[:120])
+    sections = bioc_sections(document)
+    if not sections:
+        return FullText(source_id=pmid, error='BioC document had no text')
+    raw = sum(s.char_count for s in sections)
+    return FullText(source_id=pmid, sections=sections, raw_chars=raw)
