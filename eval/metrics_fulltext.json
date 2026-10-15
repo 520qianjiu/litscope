@@ -1,0 +1,189 @@
+{
+  "topic": "graph neural network",
+  "corpus_papers": 18,
+  "papers_with_fulltext": 7,
+  "abstract_chunks": 80,
+  "fulltext_chunks": 1625,
+  "questions": [
+    {
+      "paper_uid": "arxiv:1609.04846v1",
+      "section": "FULLTEXT",
+      "evidence": "Another operation that has a high computational cost is the computation of the inverse of eH.",
+      "question": "What operation has a high computational cost?"
+    },
+    {
+      "paper_uid": "arxiv:1909.10086v3",
+      "section": "FULLTEXT",
+      "evidence": "For instance, if we choose f(·) as the identity function, the transformation becomes the Laplacian eigenmaps [2].",
+      "question": "What does the transformation become if we choose f(·) as the identity function?"
+    },
+    {
+      "paper_uid": "arxiv:2502.01654v1",
+      "section": "FULLTEXT",
+      "evidence": "W llowing is an pose there is following for s abstract ex ntrations on t n this paper.",
+      "question": "What is the abstract about?"
+    },
+    {
+      "paper_uid": "arxiv:1803.02421v2",
+      "section": "FULLTEXT",
+      "evidence": "In the convolutional operation, the input (usually a 2-dimensional representation) is scanned (convolved) by a small-sized weight matrix, referred to as a ﬁlter.",
+      "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?"
+    },
+    {
+      "paper_uid": "arxiv:2406.00552v4",
+      "section": "EXPERIMENTAL METHODOLOGY",
+      "evidence": "We validated our search by matching the best test accuracies we found in the literature on GNN training systems we reviewed.",
+      "question": "What did we validate our search by matching?"
+    },
+    {
+      "paper_uid": "pubmed:40728607",
+      "section": "RESULTS",
+      "evidence": "External validation of 3D DenseNet In the external validation cohort, the three-class model maintained strong diagnostic performance.",
+      "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?"
+    },
+    {
+      "paper_uid": "arxiv:1609.04846v1",
+      "section": "FULLTEXT",
+      "evidence": "For each queue i the service time is exponentially distributed with rate ri.",
+      "question": "What is the distribution of the service time for each queue i?"
+    },
+    {
+      "paper_uid": "arxiv:1909.10086v3",
+      "section": "FULLTEXT",
+      "evidence": "Cayleynets: Graph convolutional neural networks with complex rational spectral ﬁlters.",
+      "question": "What are Cayleynets?"
+    }
+  ],
+  "results": [
+    {
+      "arm": "abstract-only (dense)",
+      "questions": 8,
+      "evidence_recall": 0.0,
+      "refusal_rate": 1.0,
+      "citation_support_rate": 0.375,
+      "details": [
+        {
+          "question": "What operation has a high computational cost?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 100
+        },
+        {
+          "question": "What does the transformation become if we choose f(·) as the identity function?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 463
+        },
+        {
+          "question": "What is the abstract about?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.5,
+          "answer_chars": 379
+        },
+        {
+          "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 214
+        },
+        {
+          "question": "What did we validate our search by matching?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 86
+        },
+        {
+          "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 201
+        },
+        {
+          "question": "What is the distribution of the service time for each queue i?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 1.0,
+          "answer_chars": 435
+        },
+        {
+          "question": "What are Cayleynets?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 208
+        }
+      ]
+    },
+    {
+      "arm": "two-stage full-text",
+      "questions": 8,
+      "evidence_recall": 0.125,
+      "refusal_rate": 0.625,
+      "citation_support_rate": 0.75,
+      "details": [
+        {
+          "question": "What operation has a high computational cost?",
+          "evidence_found": false,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 242
+        },
+        {
+          "question": "What does the transformation become if we choose f(·) as the identity function?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 189
+        },
+        {
+          "question": "What is the abstract about?",
+          "evidence_found": false,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 71
+        },
+        {
+          "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 158
+        },
+        {
+          "question": "What did we validate our search by matching?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 0
+        },
+        {
+          "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 0
+        },
+        {
+          "question": "What is the distribution of the service time for each queue i?",
+          "evidence_found": true,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 39
+        },
+        {
+          "question": "What are Cayleynets?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 434
+        }
+      ]
+    }
+  ]
+}
