@@ -1,9 +1,9 @@
 {
   "topic": "graph neural network",
   "corpus_papers": 18,
-  "papers_with_fulltext": 7,
+  "papers_with_fulltext": 6,
   "abstract_chunks": 80,
-  "fulltext_chunks": 1625,
+  "fulltext_chunks": 1511,
   "questions": [
     {
       "paper_uid": "arxiv:1609.04846v1",
@@ -36,31 +36,32 @@
       "question": "What did we validate our search by matching?"
     },
     {
-      "paper_uid": "pubmed:40728607",
-      "section": "RESULTS",
-      "evidence": "External validation of 3D DenseNet In the external validation cohort, the three-class model maintained strong diagnostic performance.",
-      "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?"
-    },
-    {
       "paper_uid": "arxiv:1609.04846v1",
       "section": "FULLTEXT",
-      "evidence": "For each queue i the service time is exponentially distributed with rate ri.",
-      "question": "What is the distribution of the service time for each queue i?"
+      "evidence": "Prob- ablility in the Engineering and Informational Sciences, 8:213–219, 1994.",
+      "question": "What journal published the article in 1994?"
     },
     {
       "paper_uid": "arxiv:1909.10086v3",
       "section": "FULLTEXT",
-      "evidence": "Cayleynets: Graph convolutional neural networks with complex rational spectral ﬁlters.",
-      "question": "What are Cayleynets?"
+      "evidence": "There is no mechanism for sharing the embedding model across different datasets.",
+      "question": "What is there no mechanism for sharing across different datasets?"
+    },
+    {
+      "paper_uid": "arxiv:2502.01654v1",
+      "section": "FULLTEXT",
+      "evidence": "s a pre-train it is impor rent situation more trainin predict the g can lead t it was expect result of LST ning is app raining data.",
+      "question": "What can lead to the expected result of LSTM training?"
     }
   ],
+  "reranker": "openai-compatible-rerank",
   "results": [
     {
       "arm": "abstract-only (dense)",
       "questions": 8,
       "evidence_recall": 0.0,
-      "refusal_rate": 1.0,
-      "citation_support_rate": 0.375,
+      "refusal_rate": 0.875,
+      "citation_support_rate": 0.4167,
       "details": [
         {
           "question": "What operation has a high computational cost?",
@@ -74,14 +75,14 @@
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
-          "answer_chars": 463
+          "answer_chars": 600
         },
         {
           "question": "What is the abstract about?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.5,
-          "answer_chars": 379
+          "answer_chars": 381
         },
         {
           "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?",
@@ -95,28 +96,28 @@
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
-          "answer_chars": 86
+          "answer_chars": 182
         },
         {
-          "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?",
+          "question": "What journal published the article in 1994?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
-          "answer_chars": 201
+          "answer_chars": 443
         },
         {
-          "question": "What is the distribution of the service time for each queue i?",
+          "question": "What is there no mechanism for sharing across different datasets?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 1.0,
-          "answer_chars": 435
+          "answer_chars": 157
         },
         {
-          "question": "What are Cayleynets?",
+          "question": "What can lead to the expected result of LSTM training?",
           "evidence_found": false,
-          "refused": true,
-          "citation_support": 0.0,
-          "answer_chars": 208
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 198
         }
       ]
     },
@@ -124,36 +125,36 @@
       "arm": "two-stage full-text",
       "questions": 8,
       "evidence_recall": 0.125,
-      "refusal_rate": 0.625,
-      "citation_support_rate": 0.75,
+      "refusal_rate": 0.75,
+      "citation_support_rate": 0.6667,
       "details": [
         {
           "question": "What operation has a high computational cost?",
           "evidence_found": false,
-          "refused": false,
+          "refused": true,
           "citation_support": 1.0,
-          "answer_chars": 242
+          "answer_chars": 154
         },
         {
           "question": "What does the transformation become if we choose f(·) as the identity function?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
-          "answer_chars": 189
+          "answer_chars": 182
         },
         {
           "question": "What is the abstract about?",
           "evidence_found": false,
           "refused": false,
           "citation_support": 1.0,
-          "answer_chars": 71
+          "answer_chars": 70
         },
         {
           "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
-          "answer_chars": 158
+          "answer_chars": 456
         },
         {
           "question": "What did we validate our search by matching?",
@@ -163,25 +164,90 @@
           "answer_chars": 0
         },
         {
-          "question": "What diagnostic performance did the three-class model maintain in the external validation cohort?",
+          "question": "What journal published the article in 1994?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 128
+        },
+        {
+          "question": "What is there no mechanism for sharing across different datasets?",
+          "evidence_found": true,
+          "refused": true,
+          "citation_support": 1.0,
+          "answer_chars": 140
+        },
+        {
+          "question": "What can lead to the expected result of LSTM training?",
+          "evidence_found": false,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 172
+        }
+      ]
+    },
+    {
+      "arm": "two-stage + openai-compatible-rerank",
+      "questions": 8,
+      "evidence_recall": 0.375,
+      "refusal_rate": 0.625,
+      "citation_support_rate": 0.8333,
+      "details": [
+        {
+          "question": "What operation has a high computational cost?",
+          "evidence_found": false,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 219
+        },
+        {
+          "question": "What does the transformation become if we choose f(·) as the identity function?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 83
+        },
+        {
+          "question": "What is the abstract about?",
+          "evidence_found": true,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 76
+        },
+        {
+          "question": "What is the small-sized weight matrix used to scan the input in a convolutional operation called?",
+          "evidence_found": false,
+          "refused": true,
+          "citation_support": 0.0,
+          "answer_chars": 151
+        },
+        {
+          "question": "What did we validate our search by matching?",
           "evidence_found": false,
           "refused": true,
           "citation_support": 0.0,
           "answer_chars": 0
         },
         {
-          "question": "What is the distribution of the service time for each queue i?",
+          "question": "What journal published the article in 1994?",
           "evidence_found": true,
-          "refused": false,
+          "refused": true,
           "citation_support": 1.0,
-          "answer_chars": 39
+          "answer_chars": 502
         },
         {
-          "question": "What are Cayleynets?",
-          "evidence_found": false,
+          "question": "What is there no mechanism for sharing across different datasets?",
+          "evidence_found": true,
           "refused": true,
-          "citation_support": 0.0,
-          "answer_chars": 434
+          "citation_support": 1.0,
+          "answer_chars": 102
+        },
+        {
+          "question": "What can lead to the expected result of LSTM training?",
+          "evidence_found": false,
+          "refused": false,
+          "citation_support": 1.0,
+          "answer_chars": 352
         }
       ]
     }

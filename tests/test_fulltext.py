@@ -358,3 +358,71 @@ class TestBiocRetry(unittest.TestCase):
         finally:
             ft.urllib.request.urlopen = original_open
             ft.time.sleep = original_sleep
+
+
+class TestReranker(unittest.TestCase):
+    def test_noop_keeps_incoming_order(self):
+        from app.index.rerank import NoopReranker
+        order = NoopReranker().rerank('q', ['a', 'b', 'c'], top_n=3)
+        self.assertEqual([i for i, _s in order], [0, 1, 2])
+
+    def test_reranker_failure_degrades_to_original_order(self):
+        import app.index.rerank as rr
+        reranker = rr.OpenAICompatReranker('https://example.invalid', 'k', 'm', attempts=1)
+        original = rr.urllib.request.urlopen
+        rr.urllib.request.urlopen = lambda *a, **k: (_ for _ in ()).throw(OSError('down'))
+        try:
+            order = reranker.rerank('q', ['a', 'b'])
+        finally:
+            rr.urllib.request.urlopen = original
+        self.assertEqual([i for i, _s in order], [0, 1])
+        self.assertTrue(reranker.last_error)
+
+    def test_build_reranker_defaults_to_noop(self):
+        import os
+        from app.index.rerank import NoopReranker, build_reranker
+        saved = os.environ.pop('RERANK_PROVIDER', None)
+        try:
+            self.assertIsInstance(build_reranker(), NoopReranker)
+        finally:
+            if saved is not None:
+                os.environ['RERANK_PROVIDER'] = saved
+
+
+class TestRerankedRetriever(unittest.TestCase):
+    class FakeBase():
+        name = 'fake-base'
+        def __init__(self, hits):
+            self.hits = hits
+            self.last_top_k = None
+        def search(self, query, top_k=5):
+            self.last_top_k = top_k
+            return self.hits[:top_k]
+        def __len__(self):
+            return len(self.hits)
+
+    class ReverseReranker():
+        name = 'reverse'
+        def rerank(self, query, documents, top_n=0):
+            return [(i, float(i)) for i in reversed(range(len(documents)))]
+
+    def setUp(self):
+        from app.index.retrievers import RerankedRetriever
+        self.hits = [(0.9, {'uid': 'd0', 'text': 'doc zero'}),
+                     (0.8, {'uid': 'd1', 'text': 'doc one'}),
+                     (0.7, {'uid': 'd2', 'text': 'doc two'})]
+        self.base = self.FakeBase(self.hits)
+        self.retriever = RerankedRetriever(self.base, self.ReverseReranker(), candidates=3)
+
+    def test_reranker_can_reorder_the_result(self):
+        out = self.retriever.search('q', top_k=2)
+        self.assertEqual([r['uid'] for _s, r in out], ['d2', 'd1'])
+
+    def test_candidate_pool_is_what_the_base_is_asked_for(self):
+        self.retriever.search('q', top_k=2)
+        self.assertEqual(self.base.last_top_k, 3)
+
+    def test_empty_base_result_is_returned_as_is(self):
+        from app.index.retrievers import RerankedRetriever
+        empty = RerankedRetriever(self.FakeBase([]), self.ReverseReranker(), candidates=3)
+        self.assertEqual(empty.search('q', top_k=2), [])

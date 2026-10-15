@@ -19,7 +19,8 @@ from app.dedupe import dedupe
 from app.fulltext import load_many
 from app.index import build_embedder
 from app.index.pipeline import build_fulltext_index, build_index
-from app.index.retrievers import DenseRetriever, TwoStageRetriever
+from app.index.rerank import build_reranker
+from app.index.retrievers import DenseRetriever, RerankedRetriever, TwoStageRetriever
 from app.llm import build_llm
 from app.rag import ask_with_retriever
 from app.sources import build_sources
@@ -129,6 +130,7 @@ def main(argv=None):
     parser.add_argument('--candidates', type=int, default=4)
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--cache-dir', default='')
+    parser.add_argument('--rerank-candidates', type=int, default=20)
     parser.add_argument('--out', default='metrics_fulltext.json')
     args = parser.parse_args(argv)
 
@@ -187,11 +189,19 @@ def main(argv=None):
                                   candidates=args.candidates, name='two-stage-fulltext')
     fulltext_arm = run_arm('two-stage full-text', two_stage, questions, llm,
                            args.top_k, audit_answer)
+    arms = [abstract_arm, fulltext_arm]
+
+    reranker = build_reranker()
+    if reranker.name != 'noop':
+        reranked = RerankedRetriever(two_stage, reranker, candidates=args.rerank_candidates)
+        arms.append(run_arm('two-stage + ' + reranker.name, reranked, questions,
+                            llm, args.top_k, audit_answer))
 
     report = {'topic': args.topic, 'corpus_papers': len(papers),
               'papers_with_fulltext': len(usable), 'abstract_chunks': len(abstract_store),
               'fulltext_chunks': stats['chunks'], 'questions': questions,
-              'results': [abstract_arm, fulltext_arm]}
+              'reranker': reranker.name if 'reranker' in dir() else 'noop',
+              'results': arms}
     Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
 
     header = '%-24s %-16s %-14s %s' % ('arm', 'evidence_recall', 'refusal_rate', 'citation_support')

@@ -98,3 +98,34 @@ class TwoStageRetriever(Retriever):
         if not paper_ids:
             return []
         return self.fulltext_store.search(vector, top_k, paper_ids=paper_ids)
+
+
+class RerankedRetriever(Retriever):
+    """Widen the candidate list, then let a cross-encoder re-order it.
+
+    Retrieval is tuned for recall, so it returns passages that share vocabulary with
+    the question without answering it. A cross-encoder reads query and passage
+    together and can reject those -- exactly what the evidence-recall measurement
+    was penalising.
+    """
+
+    def __init__(self, base: Retriever, reranker, candidates: int = 20, name: str = ''):
+        self.base = base
+        self.reranker = reranker
+        self.candidates = max(1, int(candidates))
+        self.name = name or (base.name + '+rerank')
+
+    def __len__(self) -> int:
+        return len(self.base)
+
+    def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> List[Hit]:
+        hits = self.base.search(query, self.candidates)
+        if not hits:
+            return []
+        documents = [str((record or {}).get('text') or '') for _score, record in hits]
+        order = self.reranker.rerank(query, documents, top_n=top_k)
+        out: List[Hit] = []
+        for index, score in order[:max(1, int(top_k))]:
+            if 0 <= index < len(hits):
+                out.append((float(score), hits[index][1]))
+        return out or hits[:top_k]
