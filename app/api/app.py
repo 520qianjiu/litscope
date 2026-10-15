@@ -37,6 +37,8 @@ def create_app(service: Optional[CorpusService] = None) -> FastAPI:
             'retriever': svc.default_retriever,
             'cached_corpora': len(svc.cache),
             'llm': 'ready' if svc.llm_ready else 'not configured',
+            'reranker': svc.reranker.name,
+            'fulltext_enabled': svc.wants_fulltext(),
         }
         # Only expose the config report when something is actually wrong, so a healthy
         # deployment does not advertise its environment on a public URL.

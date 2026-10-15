@@ -126,3 +126,80 @@ class TestAsk(unittest.TestCase):
         client.post('/api/ask', json={'topic': 'other topic',
                                       'question': 'graph neural network training'})
         self.assertEqual(len(source.calls), 2)
+
+
+class TestFulltextApiMode(unittest.TestCase):
+    """The API must be able to serve full-text retrieval, and must degrade to the
+    abstract index when a topic has no downloadable bodies."""
+
+    def make_service(self, fulltext_ok=True):
+        from app.api.service import CorpusService
+        from app.fulltext import FullText, Section
+        from app.index import HashingEmbedder
+
+        class FakeSource(Source):
+            name = 'fake'
+
+            def search(self, query, limit=10):
+                return [Paper(source='arxiv', source_id='2406.00552v4', title='GNN Training Systems',
+                              abstract='Mini-batch and full-graph training differ.'),
+                        Paper(source='arxiv', source_id='1909.10086v3', title='Graph Embeddings',
+                              abstract='Embeddings are task dependent.')]
+
+        def loader(papers, cache_dir=None):
+            out = {}
+            for index, paper in enumerate(papers):
+                if fulltext_ok and index == 0:
+                    out[paper.uid] = FullText(source_id=paper.source_id, sections=[
+                        Section(name='EXPERIMENTAL METHODOLOGY',
+                                text='We compare against three baselines: DGL, BNS-GCN and full-graph.'),
+                        Section(name='PERFORMANCE EVALUATION',
+                                text='Mini-batch training reaches lower time-to-accuracy.')])
+                else:
+                    out[paper.uid] = FullText(source_id=paper.source_id, error='no PMC record (not open access)')
+            return out
+
+        return CorpusService(llm=ScriptedClient(['Answer [1].']),
+                             embedder=HashingEmbedder(dim=128),
+                             source_factory=lambda names: [FakeSource()],
+                             retriever='fulltext',
+                             fulltext_loader=loader)
+
+    def test_fulltext_mode_builds_a_two_stage_reranked_retriever(self):
+        service = self.make_service(fulltext_ok=True)
+        entry = service.corpus('gnn')
+        self.assertIsNotNone(entry['fulltext_store'])
+        retriever = service.retriever_for(entry)
+        self.assertIn('fulltext', retriever.name)
+
+    def test_ask_reports_fulltext_stats(self):
+        service = self.make_service(fulltext_ok=True)
+        result = service.ask('gnn', 'graph neural network training baselines')
+        self.assertEqual(result['corpus']['fulltext']['with_fulltext'], 1)
+        self.assertGreater(result['corpus']['fulltext']['chunks'], 0)
+        self.assertEqual(result['corpus']['reranker'], 'noop')
+
+    def test_falls_back_to_abstract_when_no_fulltext(self):
+        service = self.make_service(fulltext_ok=False)
+        entry = service.corpus('gnn')
+        self.assertIsNone(entry['fulltext_store'])
+        retriever = service.retriever_for(entry)
+        self.assertNotIn('fulltext', retriever.name)
+        result = service.ask('gnn', 'graph neural network training baselines')
+        self.assertFalse(result['empty'])
+
+    def test_fulltext_disabled_by_default(self):
+        from app.api.service import CorpusService
+        from app.index import HashingEmbedder
+
+        class QuietSource(Source):
+            name = 'quiet'
+
+            def search(self, query, limit=10):
+                return [Paper(source='arxiv', source_id='1', title='T', abstract='Body.')]
+
+        service = CorpusService(embedder=HashingEmbedder(dim=64), retriever='dense',
+                                source_factory=lambda names: [QuietSource()])
+        self.assertFalse(service.wants_fulltext())
+        entry = service.corpus('anything')
+        self.assertIsNone(entry['fulltext'])
