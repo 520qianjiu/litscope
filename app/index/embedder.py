@@ -2,13 +2,16 @@ import hashlib
 import json
 import math
 import os
+import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Sequence
 
 from ..config import HTTP_TIMEOUT
 
 DEFAULT_HASHING_DIM = 256
 DEFAULT_HASHING_NGRAM = 3
+DEFAULT_EMBEDDING_CONCURRENCY = 4
 
 
 def _as_int(name: str, default: int) -> int:
@@ -85,15 +88,25 @@ class OpenAICompatEmbedder(Embedder):
 
     def embed(self, texts: Sequence[str]) -> List[List[float]]:
         # Full-text indexing produces thousands of chunks; a single request would
-        # time out, so requests are batched. The batch size is configurable because
-        # providers differ a lot in how much they accept per call.
+        # time out, so requests are batched. Batches are also sent with bounded
+        # concurrency: the call is network-bound, and four in-flight requests turn
+        # a serial chain of ~20 round-trips into a handful of waves. Results are
+        # reassembled in input order so vectors stay aligned with their chunks.
         items = list(texts)
         if not items:
             return []
-        size = max(1, int(os.environ.get('EMBEDDING_BATCH') or self.batch_size))
+        size = _as_int('EMBEDDING_BATCH', self.batch_size)
+        batches = [items[start:start + size] for start in range(0, len(items), size)]
+        workers = min(_as_int('EMBEDDING_CONCURRENCY', DEFAULT_EMBEDDING_CONCURRENCY),
+                      len(batches))
         vectors: List[List[float]] = []
-        for start in range(0, len(items), size):
-            vectors.extend(self._embed_batch(items[start:start + size]))
+        if workers <= 1:
+            for batch in batches:
+                vectors.extend(self._embed_batch(batch))
+            return vectors
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for batch_vectors in pool.map(self._embed_batch, batches):
+                vectors.extend(batch_vectors)
         return vectors
 
     def _embed_batch(self, batch: Sequence[str], attempts: int = 3) -> List[List[float]]:

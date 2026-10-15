@@ -88,3 +88,16 @@ render.yaml 已经声明好的（不用重复填）：
 - Render 免费实例闲置会休眠，首次访问要等约 30 秒唤醒。面试演示前先自己访问一次预热。
 - 免费档内存 512MB，语料别一次拉太多；当前默认每源 8 篇、去重后约 20 篇，够用。
 - dense 检索每次查询会调一次 embedding API（约 200 ms），免费额度足够演示，但别拿它压测。
+
+## 7. 冷启动与演示预热（Railway / Render 通用）
+
+新主题的首次提问要现建索引（检索 -> 下载全文 -> 嵌入），这是最慢的一次请求；同主题之后走内存缓存。**演示前先在页面上把要演示的问题问一遍**，正式演示时每次响应约 3-4 秒。
+
+响应里的 timings 字段（sources / abstract_index / fulltext_fetch / fulltext_index / answer）可逐段核对耗时。
+
+可选调优（平台环境变量，均有默认值）：
+
+| Key | 默认 | 说明 |
+| --- | --- | --- |
+| EMBEDDING_CONCURRENCY | 4 | 嵌入批次并发数；网络慢可试 6，遇 429 降回 4 |
+| LITSCOPE_FULLTEXT_CONCURRENCY | 4 | 全文下载并发数 |

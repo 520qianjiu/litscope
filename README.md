@@ -124,6 +124,21 @@ BM25 略胜。词法查询本来就是它的主场。
 复现：
 
     python eval/fulltext_eval.py --topic graph-neural-network --papers 6 --questions 8 --out eval/metrics_fulltext.json
+
+### 6. 冷启动优化：串行嵌入 -> 4 路并行
+
+线上首次提问要现建索引（检索 -> 下载全文 -> 嵌入），其中嵌入是绝对大头，批次原本逐条串行发送。同一批 1429 个 chunk 实测（bge-m3）：
+
+| 嵌入方式 | 1429 chunks 耗时 |
+| --- | --- |
+| 串行批次（旧默认） | 16.3 s |
+| 4 路并发（新默认） | 4.1 s |
+| 6 路并发 | 3.1 s |
+
+端到端本地冷启动（检索 2.8 s + 下载 1.1 s + 嵌入 4.5 s + 生成 1.8 s）：**21.0 s -> 11.1 s**；同主题二次提问（内存缓存命中）2.9 s。
+
+实现：`EMBEDDING_CONCURRENCY`（默认 4）控制嵌入批次并发，`LITSCOPE_FULLTEXT_CONCURRENCY`（默认 4）控制全文下载并发；两者都做容错解析，乱填不会让服务崩溃。`/api/ask` 响应新增 `timings` 字段（sources / abstract_index / fulltext_fetch / fulltext_index / answer），线上冷启动可逐段归因。
+
 ## 踩过的一个真坑：跨语言静默失败
 
 最初版本用我自己写的 256 维哈希嵌入，并用 BM25 做词法基线。跑中文提问时出现了这个：
@@ -172,11 +187,11 @@ BM25 略胜。词法查询本来就是它的主场。
 
 ## 已知限制
 
-- 只吃摘要与元数据，不解析全文 PDF
+- 全文只覆盖 arXiv 与 PMC 开放获取子集，其余记录仍是摘要级
 - 评测标签偏简单（标题译中文 / 关键词查询）；英文关键词模式下 Recall@5 已饱和，区分度主要来自 R@1 与 MRR
 - 裁判与生成同源（deepseek-flash），负对照只做了部分缓解，不能完全排除自我偏好
 - dense 检索每次查询要一次 embedding API 调用（约 200 ms），未做查询向量缓存
-- 多源检索是串行 + 限速 sleep，未做并发与结果缓存
+- 多源检索（三个源的查询）仍是串行；全文下载与嵌入批次为有限并发（默认 4 路）；语料索引只存在内存里，进程重启后需重建
 
 ## 架构
 
@@ -200,7 +215,7 @@ BM25 略胜。词法查询本来就是它的主场。
 | GET /api/search?q=&limit=&sources= | 多源检索 + 去重 |
 | POST /api/ask | {topic, question, top_k, per_source, retriever} |
 
-语料按 topic 缓存，同主题二次提问不重复检索。
+语料按 topic 缓存在内存中，同主题二次提问不再重建索引。响应里的 timings 字段（sources / abstract_index / fulltext_fetch / fulltext_index / answer）可逐段核对耗时；线上演示前先把要问的问题问一遍即可预热。
 
 ## 配置
 
@@ -214,15 +229,20 @@ BM25 略胜。词法查询本来就是它的主场。
     EMBEDDING_API_KEY=...
     EMBEDDING_MODEL=BAAI/bge-m3
 
+冷启动调优（可选，代码里都有默认值）：
+
+    EMBEDDING_CONCURRENCY=4           # 嵌入批次并发数，默认 4
+    LITSCOPE_FULLTEXT_CONCURRENCY=4   # 全文下载并发数，默认 4
+
 ## 部署
 
 见 docs/DEPLOY.md（Render / Railway 单服务部署，含上线自检清单）。
 
 ## 单元测试
 
-    67 passed
+    python -m unittest discover -s tests   # 129 passed
 
-全部离线可跑，不需要 API key（靠 ScriptedClient + 假数据源）。覆盖：三个源解析器、去重合并、分块、哈希嵌入、向量检索与持久化、BM25、零分词重叠过滤、引用解析、prompt 组装、RAG 流程、裁判判定、API 端点与语料缓存。
+全部离线可跑，不需要 API key（靠 ScriptedClient + 假数据源）。覆盖：三个源解析器、去重合并、分块、哈希嵌入、向量检索与持久化、BM25、零分词重叠过滤、引用解析、prompt 组装、RAG 流程、裁判判定、API 端点与语料缓存、嵌入/下载并发与分阶段计时。
 
 ## 项目结构
 
@@ -243,5 +263,6 @@ BM25 略胜。词法查询本来就是它的主场。
 - W6 上线部署（Railway）+ 配置容错改造 + 部署踩坑复盘
 - W7 arXiv / PMC 全文检索（章节感知分块 + 两级检索）+ 客观评测
 - W8 交叉编码器重排（三个指标同时提升）
+- W9 冷启动优化（并行嵌入/下载 + 分阶段计时）
 
-下一步：线上部署。
+下一步：线上复测冷启动数字并准备演示。

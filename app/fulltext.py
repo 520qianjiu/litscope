@@ -11,6 +11,7 @@ import os
 import re
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -19,6 +20,7 @@ from .config import HTTP_TIMEOUT
 
 ARXIV_PDF_BASE = 'https://arxiv.org/pdf/'
 USER_AGENT = 'LitScope/0.1 (research prototype; mailto:litscope@example.com)'
+DEFAULT_FULLTEXT_CONCURRENCY = 4
 
 # A heading must contain one of these as a whole word. The list is deliberately
 # curated: it is what separates real section titles from table cells such as
@@ -175,13 +177,35 @@ def load_fulltext(paper, cache_dir: Optional[str] = None) -> FullText:
     return FullText(source_id=identifier, sections=sections, raw_chars=len(text))
 
 
+def _fetch_concurrency() -> int:
+    # A malformed value must never take the service down; fall back to the default.
+    raw = (os.environ.get('LITSCOPE_FULLTEXT_CONCURRENCY') or '').strip()
+    if not raw:
+        return DEFAULT_FULLTEXT_CONCURRENCY
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_FULLTEXT_CONCURRENCY
+    return value if value > 0 else DEFAULT_FULLTEXT_CONCURRENCY
+
+
 def load_many(papers, cache_dir: Optional[str] = None, limit: Optional[int] = None) -> dict:
-    """Fetch full texts for a batch; returns {paper_uid: FullText}."""
-    out = {}
-    for paper in (papers[:limit] if limit else papers):
-        result = load_fulltext(paper, cache_dir=cache_dir)
-        out[paper.uid] = result
-    return out
+    """Fetch full texts for a batch; returns {paper_uid: FullText}.
+
+    Fetching is network-bound, so papers are loaded in parallel with bounded
+    concurrency; the result dict keeps the input order.
+    """
+    selected = list(papers[:limit] if limit else papers)
+    if not selected:
+        return {}
+    workers = max(1, min(_fetch_concurrency(), len(selected)))
+    if workers == 1:
+        results = [load_fulltext(paper, cache_dir=cache_dir) for paper in selected]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(
+                lambda paper: load_fulltext(paper, cache_dir=cache_dir), selected))
+    return {paper.uid: result for paper, result in zip(selected, results)}
 
 
 # --------------------------------------------------------------------------

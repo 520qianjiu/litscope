@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 from typing import Dict, List, Optional
 
 from ..dedupe import dedupe
@@ -33,6 +34,10 @@ CONFIG_KEYS = [
     'EMBEDDING_DIM',
     'EMBEDDING_NGRAM',
     'LITSCOPE_RETRIEVER',
+    'LITSCOPE_FULLTEXT_PAPERS',
+    'LITSCOPE_FULLTEXT_CONCURRENCY',
+    'EMBEDDING_BATCH',
+    'EMBEDDING_CONCURRENCY',
 ]
 
 
@@ -107,6 +112,7 @@ class CorpusService:
         if key in self.cache:
             return self.cache[key]
 
+        started = time.monotonic()
         pooled = []
         errors = []
         for source in self.source_factory(chosen):
@@ -114,9 +120,11 @@ class CorpusService:
                 pooled.extend(source.search(topic, per_source))
             except Exception as exc:
                 errors.append({'source': source.name, 'error': str(exc)[:200]})
+        searched = time.monotonic()
 
         papers = dedupe(pooled)
         store = build_index(papers, self.embedder)
+        indexed = time.monotonic()
         entry = {
             'topic': topic,
             'papers': papers,
@@ -126,11 +134,16 @@ class CorpusService:
             'retrievers': {},
             'fulltext_store': None,
             'fulltext': None,
+            # Stage timings travel with the API response so a cold start can be
+            # attributed to one stage instead of guessed at.
+            'timings': {'sources': round(searched - started, 2),
+                        'abstract_index': round(indexed - searched, 2)},
         }
         self.cache[key] = entry
 
         if self.wants_fulltext():
             entry['fulltext'] = self.load_fulltext(entry)
+        entry['timings']['build_total'] = round(time.monotonic() - started, 2)
         return entry
 
     def wants_fulltext(self) -> bool:
@@ -142,12 +155,16 @@ class CorpusService:
         """Fetch bodies for the corpus and index them. Never raises: a topic where no
         full text is available simply keeps using the abstract index."""
         papers = entry['papers']
+        timings = entry.setdefault('timings', {})
         summary = {'papers': len(papers), 'with_fulltext': 0, 'chunks': 0, 'error': ''}
+        started = time.monotonic()
         try:
             fetched = self.fulltext_loader(papers[:FULLTEXT_PAPERS], cache_dir=self.fulltext_cache)
         except Exception as exc:
             summary['error'] = type(exc).__name__
+            timings['fulltext_fetch'] = round(time.monotonic() - started, 2)
             return summary
+        timings['fulltext_fetch'] = round(time.monotonic() - started, 2)
         usable = sum(1 for value in fetched.values() if getattr(value, 'ok', False))
         summary['with_fulltext'] = usable
         if not usable:
@@ -159,11 +176,14 @@ class CorpusService:
                 for uid, value in list(fetched.items())[:4]
             ]
             return summary
+        started = time.monotonic()
         try:
             store, stats = build_fulltext_index(papers, self.embedder, fetched)
         except Exception as exc:
             summary['error'] = type(exc).__name__
+            timings['fulltext_index'] = round(time.monotonic() - started, 2)
             return summary
+        timings['fulltext_index'] = round(time.monotonic() - started, 2)
         entry['fulltext_store'] = store if len(store) else None
         summary['chunks'] = stats['chunks']
         summary['sections'] = len(stats['sections'])
@@ -207,9 +227,16 @@ class CorpusService:
 
     def ask(self, topic: str, question: str, top_k: int = 5, per_source: int = 8,
             sources: Optional[List[str]] = None, retriever: str = '') -> dict:
+        started = time.monotonic()
         entry = self.corpus(topic, per_source, sources)
+        corpus_ready = time.monotonic()
         engine = self.retriever_for(entry, retriever)
         result = ask_with_retriever(question, engine, self.llm, top_k=top_k)
+        answered = time.monotonic()
+        # corpus_wait is ~0 on a cache hit; otherwise it is the full build time.
+        result['timings'] = dict(entry.get('timings') or {})
+        result['timings'].update({'corpus_wait': round(corpus_ready - started, 2),
+                                  'answer': round(answered - corpus_ready, 2)})
         result['corpus'] = {
             'topic': topic,
             'papers': len(entry['papers']),
