@@ -74,30 +74,56 @@ class HashingEmbedder(Embedder):
 class OpenAICompatEmbedder(Embedder):
     name = 'openai-compatible'
 
-    def __init__(self, base_url: str, api_key: str, model: str, dim: int = 0):
+    def __init__(self, base_url: str, api_key: str, model: str, dim: int = 0,
+                 batch_size: int = 64, timeout: float = 0):
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
         self.model = model
         self.dim = int(dim)
+        self.batch_size = max(1, int(batch_size))
+        self.timeout = float(timeout or HTTP_TIMEOUT)
 
     def embed(self, texts: Sequence[str]) -> List[List[float]]:
-        payload = {'model': self.model, 'input': list(texts)}
-        request = urllib.request.Request(
-            self.base_url + '/embeddings',
-            data=json.dumps(payload).encode('utf-8'),
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + self.api_key,
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
-            data = json.loads(response.read().decode('utf-8', errors='replace'))
-        rows = sorted(data.get('data') or [], key=lambda row: row.get('index', 0))
-        vectors = [[float(value) for value in row.get('embedding') or []] for row in rows]
-        if vectors and not self.dim:
-            self.dim = len(vectors[0])
+        # Full-text indexing produces thousands of chunks; a single request would
+        # time out, so requests are batched. The batch size is configurable because
+        # providers differ a lot in how much they accept per call.
+        items = list(texts)
+        if not items:
+            return []
+        size = max(1, int(os.environ.get('EMBEDDING_BATCH') or self.batch_size))
+        vectors: List[List[float]] = []
+        for start in range(0, len(items), size):
+            vectors.extend(self._embed_batch(items[start:start + size]))
         return vectors
+
+    def _embed_batch(self, batch: Sequence[str], attempts: int = 3) -> List[List[float]]:
+        payload = {'model': self.model, 'input': list(batch)}
+        body = json.dumps(payload).encode('utf-8')
+        last_error = 'unknown'
+        for attempt in range(attempts):
+            request = urllib.request.Request(
+                self.base_url + '/embeddings',
+                data=body,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + self.api_key,
+                },
+                method='POST',
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    data = json.loads(response.read().decode('utf-8', errors='replace'))
+                rows = sorted(data.get('data') or [], key=lambda row: row.get('index', 0))
+                vectors = [[float(v) for v in row.get('embedding') or []] for row in rows]
+                if vectors and not self.dim:
+                    self.dim = len(vectors[0])
+                return vectors
+            except Exception as exc:
+                last_error = type(exc).__name__
+                if attempt + 1 < attempts:
+                    time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError('embedding request failed after %d attempts: %s'
+                           % (attempts, last_error))
 
 
 def build_embedder(name: str = '') -> Embedder:

@@ -55,3 +55,46 @@ def build_retriever(kind: str, store: VectorStore, embedder: Embedder) -> Retrie
     if key in ('dense', 'embedding', 'vector'):
         return DenseRetriever(store, embedder)
     raise ValueError('unknown retriever: ' + kind)
+
+
+class TwoStageRetriever(Retriever):
+    """Stage one shortlists papers from abstracts; stage two ranks their full text.
+
+    This exists because full texts do not fit in a prompt: 20 papers is roughly
+    600k tokens. Shortlisting first keeps the context small enough to send while
+    still letting the answer be grounded in body text instead of abstracts.
+    """
+
+    name = 'two-stage'
+
+    def __init__(self, abstract_store: VectorStore, fulltext_store: VectorStore,
+                 embedder: Embedder, candidates: int = 5, name: str = ''):
+        self.abstract_store = abstract_store
+        self.fulltext_store = fulltext_store
+        self.embedder = embedder
+        self.candidates = max(1, int(candidates))
+        self.last_shortlist: List[str] = []
+        if name:
+            self.name = name
+
+    def __len__(self) -> int:
+        return len(self.fulltext_store)
+
+    def shortlist(self, query: str):
+        vector = self.embedder.embed_one(query)
+        hits = self.abstract_store.search(vector, self.candidates)
+        seen = set()
+        paper_ids: List[str] = []
+        for _score, record in hits:
+            uid = record.get('paper_uid')
+            if uid and uid not in seen:
+                seen.add(uid)
+                paper_ids.append(uid)
+        self.last_shortlist = paper_ids
+        return vector, paper_ids
+
+    def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> List[Hit]:
+        vector, paper_ids = self.shortlist(query)
+        if not paper_ids:
+            return []
+        return self.fulltext_store.search(vector, top_k, paper_ids=paper_ids)

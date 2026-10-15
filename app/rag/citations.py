@@ -34,6 +34,7 @@ def resolve_citations(text: str, contexts: Sequence[Dict]) -> Dict:
             'paper_uid': record.get('paper_uid'),
             'chunk_uid': record.get('uid'),
             'chunk_index': record.get('chunk_index'),
+            'section': record.get('section', ''),
             'score': item.get('score'),
             'text': record.get('text'),
         })

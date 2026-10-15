@@ -32,6 +32,7 @@ class Chunk:
     chunk_index: int
     text: str
     embedding: Optional[List[float]] = None
+    section: str = ''
 
     @property
     def uid(self) -> str:
