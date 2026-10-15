@@ -426,3 +426,22 @@ class TestRerankedRetriever(unittest.TestCase):
         from app.index.retrievers import RerankedRetriever
         empty = RerankedRetriever(self.FakeBase([]), self.ReverseReranker(), candidates=3)
         self.assertEqual(empty.search('q', top_k=2), [])
+
+
+class TestNoiseSectionsAreSkipped(unittest.TestCase):
+    def test_references_and_appendix_are_not_indexed(self):
+        from app.fulltext import Section
+        from app.index.chunker import sections_to_chunks
+        sections = [Section(name='RESULTS', text='The accuracy improved. ' * 20),
+                    Section(name='REFERENCES', text='[1] Someone. A paper. ' * 20),
+                    Section(name='APPENDIX', text='Extra derivations. ' * 20)]
+        chunks = sections_to_chunks('arxiv:1', sections, max_chars=120)
+        self.assertTrue(chunks)
+        self.assertEqual({c.section for c in chunks}, {'RESULTS'})
+
+    def test_real_sections_survive(self):
+        from app.index.chunker import is_indexable_section
+        for name in ['RESULTS', 'METHODS', 'INTRODUCTION', 'DISCUSSION', 'CONCLUSION']:
+            self.assertTrue(is_indexable_section(name), msg=name)
+        for name in ['REFERENCES', 'APPENDIX', 'ACKNOWLEDGMENTS', 'SUPPLEMENTARY']:
+            self.assertFalse(is_indexable_section(name), msg=name)

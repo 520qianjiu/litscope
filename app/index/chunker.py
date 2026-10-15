@@ -45,8 +45,20 @@ def paper_to_chunks(paper: Paper, max_chars: int = DEFAULT_MAX_CHARS,
             for index, piece in enumerate(pieces)]
 
 
+# Sections that never answer a question but are large enough to dominate an index.
+# On a typical paper REFERENCES + APPENDIX is a third of the text.
+SKIP_SECTIONS = ('REFERENCE', 'BIBLIOGRAPH', 'APPENDIX', 'ACKNOWLEDG', 'ABBR',
+                 'KEYWORD', 'SUPPLEMENT', 'FIGURE', 'TABLE', 'AUTHOR')
+
+
+def is_indexable_section(name: str) -> bool:
+    upper = (name or '').upper()
+    return not any(skip in upper for skip in SKIP_SECTIONS)
+
+
 def sections_to_chunks(paper_uid: str, sections, max_chars: int = DEFAULT_MAX_CHARS,
-                       overlap_sentences: int = DEFAULT_OVERLAP) -> List[Chunk]:
+                       overlap_sentences: int = DEFAULT_OVERLAP,
+                       skip_noise: bool = True) -> List[Chunk]:
     """Chunk a parsed full text, keeping the section label on every chunk.
 
     The label is what lets retrieval distinguish a claim made in RESULTS from a
@@ -56,6 +68,8 @@ def sections_to_chunks(paper_uid: str, sections, max_chars: int = DEFAULT_MAX_CH
     chunks: List[Chunk] = []
     for section in sections:
         name = (getattr(section, 'name', '') or '').strip()
+        if skip_noise and not is_indexable_section(name):
+            continue
         pieces = chunk_text(getattr(section, 'text', ''), max_chars, overlap_sentences)
         for piece in pieces:
             chunks.append(Chunk(paper_uid=paper_uid, chunk_index=len(chunks),
